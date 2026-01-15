@@ -132,6 +132,7 @@
 // *fixed an issue with -no-digit-grouping not being applied.
 
 #include "es.h"
+#include <stdio.h>
 
 #define _ES_COPYDATA_IPCTEST_QUERYCOMPLETEW			0
 #define _ES_COPYDATA_IPCTEST_QUERYCOMPLETE2W		1
@@ -348,7 +349,14 @@ static ES_UINT64 _es_offset = 0;
 static ES_UINT64 _es_max_results = ES_UINT64_MAX;
 static ES_UINT64 _es_count = ES_UINT64_MAX;
 static DWORD _es_ret = ES_ERROR_SUCCESS; // the return code from main()
-static const wchar_t *_es_command_line = 0;
+
+typedef struct {
+	int argc;
+	char **argv;
+	int current_index;
+} CommandLine;
+static CommandLine *_es_command_line = 0;
+
 static BYTE _es_command_line_was_eq = 0; // -switch=value
 static BYTE _es_size_format = 1; // 0 = auto, 1=bytes, 2=kb
 static BYTE _es_date_format = 0; // display/export (set on query) date/time format 0 = (Use default), 1=iso-8601 (as local time), 2=filetime in decimal, 3=iso-8601 (in utc), 4=system format, 5=iso-8601 (full-resolution) 6=iso-8601 (in utc) (full-resolution)
@@ -6278,12 +6286,14 @@ static int _es_main(void)
 	// load default settings.	
 	_es_load_settings();
 
-	_es_command_line = GetCommandLine();
+	// _es_command_line = GetCommandLine();
 	_es_command_line_was_eq = 0;
 
-	_es_output_noncell_wchar_string(L"cmd: ");
-	_es_output_noncell_wchar_string(_es_command_line);
-	_es_output_noncell_wchar_string(L"\n");
+	// #ifdef _ES_DEBUG
+	// _es_output_noncell_wchar_string(L"cmd: ");
+	// _es_output_noncell_wchar_string(_es_command_line);
+	// _es_output_noncell_wchar_string(L"\n");
+	// #endif
 
 /*
 	// code page test
@@ -6299,18 +6309,22 @@ static int _es_main(void)
 	if (_es_command_line)
 	{
 		_es_get_argv(&argv_wcbuf);
+		#ifdef _ES_DEBUG
 		_es_output_noncell_wchar_string(L"cli: ");
 		_es_output_noncell_wchar_string(argv_wcbuf.buf);
 		_es_output_noncell_wchar_string(L"\n");
+		#endif
 	}
 	
 	if (_es_command_line)
 	{
 		_es_get_argv(&argv_wcbuf);
 
+		#ifdef _ES_DEBUG
 		_es_output_noncell_wchar_string(L"arg: ");
 		_es_output_noncell_wchar_string(argv_wcbuf.buf);
 		_es_output_noncell_wchar_string(L"\n");
+		#endif
 		
 		if (_es_command_line)
 		{
@@ -7875,27 +7889,27 @@ static int _es_main(void)
 					goto next_argv;
 				}
 				
-				if ((_es_check_option_utf8_string(argv_wcbuf.buf,"q*")) || (_es_check_option_utf8_string(argv_wcbuf.buf,"search*")) || (_es_check_option_utf8_string(argv_wcbuf.buf,"s*")))
-				{
-					// eat the rest.
-					// this would do the same as a stop parsing switches command line option
-					// like 7zip --
-					// or powershell --%
-					// this doesn't remove quotes.
-					// -- will still parse quotes.
-					_es_command_line = wchar_string_skip_ws(_es_command_line);
-					_es_command_line_was_eq = 0;
+				// if ((_es_check_option_utf8_string(argv_wcbuf.buf,"q*")) || (_es_check_option_utf8_string(argv_wcbuf.buf,"search*")) || (_es_check_option_utf8_string(argv_wcbuf.buf,"s*")))
+				// {
+				// 	// eat the rest.
+				// 	// this would do the same as a stop parsing switches command line option
+				// 	// like 7zip --
+				// 	// or powershell --%
+				// 	// this doesn't remove quotes.
+				// 	// -- will still parse quotes.
+				// 	_es_command_line = wchar_string_skip_ws(_es_command_line);
+				// 	_es_command_line_was_eq = 0;
 							
-					if (search_wcbuf.length_in_wchars)
-					{
-						wchar_buf_cat_wchar(&search_wcbuf,' ');
-					}
+				// 	if (search_wcbuf.length_in_wchars)
+				// 	{
+				// 		wchar_buf_cat_wchar(&search_wcbuf,' ');
+				// 	}
 
-					wchar_buf_cat_wchar_string(&search_wcbuf,_es_command_line);
+				// 	wchar_buf_cat_wchar_string(&search_wcbuf,_es_command_line);
 					
-					// we are done, break.
-					break;
-				}
+				// 	// we are done, break.
+				// 	break;
+				// }
 
 				if ((_es_check_option_utf8_string(argv_wcbuf.buf,"j")) || (_es_check_option_utf8_string(argv_wcbuf.buf,"journal")))
 				{
@@ -8404,9 +8418,11 @@ next_argv:
 				{
 					break;
 				}
+				#ifdef _ES_DEBUG
 				_es_output_noncell_wchar_string(L"arg: ");
 				_es_output_noncell_wchar_string(argv_wcbuf.buf);
 				_es_output_noncell_wchar_string(L"\n");
+				#endif
 			}
 		}
 		else
@@ -9324,8 +9340,17 @@ exit:
 	return ES_ERROR_SUCCESS;
 }
 
-int main(int argc,char **argv)
+int main(int argc, char **argv)
 {
+	#ifdef _ES_DEBUG
+	printf("argc: %d\n", argc);
+	for (int index = 0; index < argc; index++) printf("argv[%d]: %s\n", index , argv[index]);
+	#endif
+	_es_command_line = mem_alloc(sizeof(CommandLine));
+	_es_command_line->argc = argc;
+	_es_command_line->argv = argv;
+	_es_command_line->current_index = 0;
+
 	return _es_main();
 }
 
@@ -10484,6 +10509,7 @@ static void _es_format_dimensions(EVERYTHING3_DIMENSIONS *dimensions_value,wchar
 // this function preserves quotes.
 // so an arg in quotes: "-addcolumn" is treated as a search.
 // use _es_get_command_argv to get a switch param that processes quotes.
+/*
 static void _es_get_argv(wchar_buf_t *wcbuf)
 {
 	int pass;
@@ -10612,6 +10638,18 @@ static void _es_get_argv(wchar_buf_t *wcbuf)
 	_es_command_line = p;
 	_es_command_line_was_eq = was_eq;
 }
+*/
+
+static void _es_get_argv(wchar_buf_t *wcbuf) {
+	char *current = _es_command_line->argv[_es_command_line->current_index];
+	_es_command_line->current_index++;
+	if (current) {
+		wchar_buf_copy_utf8_string(wcbuf, current);
+	} else {
+		_es_command_line = NULL;
+		_es_command_line_was_eq = 0;
+	}
+}
 
 // get an argument from the command line.
 // throws a fatal error if there was no command line argument.
@@ -10626,6 +10664,7 @@ static void _es_expect_argv(wchar_buf_t *wcbuf)
 }
 
 // like _es_get_argv, but we remove double quotes.
+/*
 static void _es_get_command_argv(wchar_buf_t *wcbuf)
 {
 	int pass;
@@ -10714,6 +10753,18 @@ static void _es_get_command_argv(wchar_buf_t *wcbuf)
 	*d = 0;
 	_es_command_line = p;
 	_es_command_line_was_eq = 0;
+}
+*/
+
+static void _es_get_command_argv(wchar_buf_t *wcbuf) {
+	char *current = _es_command_line->argv[_es_command_line->current_index];
+	_es_command_line->current_index++;
+	if (current) {
+		wchar_buf_copy_utf8_string(wcbuf, current);
+	} else {
+		_es_command_line = NULL;
+		_es_command_line_was_eq = 0;
+	}
 }
 
 // get an argument from the command line.

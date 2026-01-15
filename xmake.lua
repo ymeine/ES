@@ -31,6 +31,7 @@ target('es', function ()
     add_files('src/**.c')
     
     add_defines('UNICODE')
+    add_defines('_ES_DEBUG')
     
     add_syslinks('user32', 'shell32')
     -- add_syslinks('unicows')
