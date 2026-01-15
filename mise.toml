@@ -3,8 +3,10 @@
 XMAKE_CONFIGDIR = '.cache'
 
 [tools]
-
-# "ubi:Kitware/CMake" = { version = "4.2.0", extract_all = "true", bin_path = "bin" }
+node = "25.3.0"
+bun = "1.3.6"
+deno = "2.6.4"
+uv = "0.9.24"
 
 [tools."github:xmake-io/xmake"]
 version = "3.0.4"

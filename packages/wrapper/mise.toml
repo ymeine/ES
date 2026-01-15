@@ -1,0 +1,4 @@
+[env]
+
+# QUERY = 'folder:endwith:Studios/DOOM/saves'
+QUERY = 'folder:endwith:"Saved Games/Nightdive Studios/DOOM/saves"'

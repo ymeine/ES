@@ -1,0 +1,16 @@
+{
+	"name": "@ymeine/forks.es.wrapper",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./*": "./src/*"
+	},
+	"scripts": {
+		"setup": "pwsh ./setup.ps1"
+	},
+	"devDependencies": {
+		"execa": "9.6.1"
+	}
+}

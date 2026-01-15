@@ -1,0 +1,14 @@
+{
+	"name": "@ymeine/forks.es",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"workspaces": [
+		"packages/**/*"
+	],
+	"devDependencies": {
+		"@types/node": "25.0.8",
+		"tsx": "4.21.0",
+		"typescript": "5.9.3"
+	}
+}
