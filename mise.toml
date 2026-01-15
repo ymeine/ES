@@ -1,0 +1,14 @@
+[env]
+# XMAKE_CONFIGDIR = '.dist'
+XMAKE_CONFIGDIR = '.cache'
+
+[tools]
+
+# "ubi:Kitware/CMake" = { version = "4.2.0", extract_all = "true", bin_path = "bin" }
+
+[tools."github:xmake-io/xmake"]
+version = "3.0.4"
+
+[tools."github:xmake-io/xmake".platforms]
+linux-x64 = { asset_pattern = "xmake-bundle-v*.linux.x86_64", bin = "xmake" }
+windows-x64 = { asset_pattern = "xmake-v*.win64.zip", bin_path = "xmake" }

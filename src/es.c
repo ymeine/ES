@@ -6210,7 +6210,7 @@ static int _es_main(void)
 			_es_output_is_char = 1;
 		}
 	}
-	
+
 	// load locale settings.
 	{
 		wchar_t locale_info_wbuf[256];
@@ -6280,7 +6280,11 @@ static int _es_main(void)
 
 	_es_command_line = GetCommandLine();
 	_es_command_line_was_eq = 0;
-	
+
+	_es_output_noncell_wchar_string(L"cmd: ");
+	_es_output_noncell_wchar_string(_es_command_line);
+	_es_output_noncell_wchar_string(L"\n");
+
 /*
 	// code page test
 	
@@ -6295,11 +6299,18 @@ static int _es_main(void)
 	if (_es_command_line)
 	{
 		_es_get_argv(&argv_wcbuf);
+		_es_output_noncell_wchar_string(L"cli: ");
+		_es_output_noncell_wchar_string(argv_wcbuf.buf);
+		_es_output_noncell_wchar_string(L"\n");
 	}
 	
 	if (_es_command_line)
 	{
 		_es_get_argv(&argv_wcbuf);
+
+		_es_output_noncell_wchar_string(L"arg: ");
+		_es_output_noncell_wchar_string(argv_wcbuf.buf);
+		_es_output_noncell_wchar_string(L"\n");
 		
 		if (_es_command_line)
 		{
@@ -8393,6 +8404,9 @@ next_argv:
 				{
 					break;
 				}
+				_es_output_noncell_wchar_string(L"arg: ");
+				_es_output_noncell_wchar_string(argv_wcbuf.buf);
+				_es_output_noncell_wchar_string(L"\n");
 			}
 		}
 		else

@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{"name": "■ src", "path": "./src"},
+		{"name": "■ root", "path": "."},
+	],
+	"settings": {
+		"explorer.fileNesting.patterns": {
+			"package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lock, tsconfig.json, .editorconfig, .gitignore, pnpm-workspace.yaml, eslint.config.ts",
+			"pyproject.toml": ".python-version, uv.lock",
+		},
+	}
+}

@@ -1,0 +1,14 @@
+__pycache__/
+yarn-error.log
+
+node_modules/
+
+.*/
+!.vscode/
+**/.vscode/compile_commands**
+**/.vscode/c_cpp_properties.json
+
+*.tgz
+
+*env.local*
+/vs2019/Win32
