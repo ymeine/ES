@@ -80,9 +80,9 @@ const pyinstaller = new CompiledRunner('pyinstaller');
 await bun.run();
 await deno.run();
 await node.run();
-await python.run();
+// await python.run();
 
-await bunCompiled.run();
-await denoCompiled.run();
+// await bunCompiled.run();
+// await denoCompiled.run();
 await nodeCompiled.run();
-await pyinstaller.run();
+// await pyinstaller.run();
