@@ -10,8 +10,15 @@
 	"scripts": {
 		"setup": "pwsh ./setup.ps1"
 	},
-	"devDependencies": {
+	"dependencies": {
 		"execa": "9.6.1",
-		"postject": "1.0.0-alpha.6"
+		"luxon": "3.7.2",
+		"octokit": "5.0.5",
+		"postject": "1.0.0-alpha.6",
+		"zip-lib": "1.1.2",
+		"zod": "4.3.5"
+	},
+	"devDependencies": {
+		"@types/luxon": "3.7.1"
 	}
 }

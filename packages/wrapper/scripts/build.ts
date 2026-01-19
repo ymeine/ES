@@ -248,13 +248,13 @@ class PyInstallerBuilder extends Builder {
 // 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-async function build() {
-	// const deno = new DenoBuilder();
-	// const bun = new BunBuilder();
-	// const node = new NodeBuilder();
-	const pyInstaller = new PyInstallerBuilder(false);
-	// const pyInstallerOneFile = new PyInstallerBuilder(true);
+export const deno = new DenoBuilder();
+export const bun = new BunBuilder();
+export const node = new NodeBuilder();
+export const pyInstaller = new PyInstallerBuilder(false);
+export const pyInstallerOneFile = new PyInstallerBuilder(true);
 
+async function build() {
 	// await deno.build();
 	// await bun.build();
 	// await node.build();

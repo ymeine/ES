@@ -1,5 +1,6 @@
 {
 	"folders": [
+		{"name": "■ tests", "path": "./packages/tests"},
 		{"name": "■ wrapper", "path": "./packages/wrapper"},
 		{"name": "■ src", "path": "./src"},
 		{"name": "■ root", "path": "."},
