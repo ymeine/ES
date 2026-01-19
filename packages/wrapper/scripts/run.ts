@@ -76,13 +76,15 @@ const bunCompiled = new CompiledRunner('bun');
 const denoCompiled = new CompiledRunner('deno');
 const nodeCompiled = new CompiledRunner('node');
 const pyinstaller = new CompiledRunner('pyinstaller');
+const pyinstallerOneFile = new CompiledRunner('pyinstaller-onefile');
 
-await bun.run();
-await deno.run();
-await node.run();
+// await bun.run();
+// await deno.run();
+// await node.run();
 // await python.run();
 
 // await bunCompiled.run();
 // await denoCompiled.run();
-await nodeCompiled.run();
-// await pyinstaller.run();
+// await nodeCompiled.run();
+await pyinstaller.run();
+// await pyinstallerOneFile.run();

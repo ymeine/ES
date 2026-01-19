@@ -14,5 +14,5 @@ from shared import run
 ####################################################################################################
 
 root = Path(sys._MEIPASS) # type: ignore
-exe_path = root.joinpath('es.exe')
+exe_path = root.joinpath('bin', 'es.exe')
 run(exe_path)

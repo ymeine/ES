@@ -45,17 +45,22 @@ export class BuilderOptions {
 interface IBuilderExtraOptions {
 	sourceExtension: string;
 	genericEntryPointName: string;
+	entryPointName?: string;
 }
 
 class Builder {
 	readonly options: BuilderOptions;
 	readonly pathEntryPoint: string;
 
-	constructor(name: string, readonly _build: () => Promise<void>, extraOptions: IBuilderExtraOptions) {
+	constructor(
+		name: string,
+		readonly _build: () => Promise<void>,
+		extraOptions: IBuilderExtraOptions,
+	) {
 		this.options = new BuilderOptions(name);
 		this.pathEntryPoint = USE_GENERIC_ENTRY_POINT
 			? join(rootSource, `${extraOptions.genericEntryPointName}.${extraOptions.sourceExtension}`)
-			: join(rootEntryPoints, `${name}.${extraOptions.sourceExtension}`);
+			: join(rootEntryPoints, `${extraOptions.entryPointName ?? name}.${extraOptions.sourceExtension}`);
 	}
 
 	get name() { return this.options.name; }
@@ -200,21 +205,40 @@ class NodeBuilder extends Builder {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class PyInstallerBuilder extends Builder {
-	constructor() { super('pyinstaller', () => this.__build(), PY_EXTRA_OPTIONS); }
+	readonly workPath: string;
+	readonly distPath: string;
+	readonly projectName = exeBaseName;
+
+	constructor(readonly oneFile: boolean) {
+		const baseName = 'pyinstaller';
+		const name = oneFile ? `${baseName}-onefile` : baseName;
+		super(name, () => this.__build(), {...PY_EXTRA_OPTIONS, entryPointName: baseName});
+
+		this.workPath = join(this.rootCache, 'work');
+		this.distPath = oneFile ? this.rootTarget : join(this.rootCache, 'dist')
+	}
 
 	async __build() {
 		const args = toArgs([
 			'uv run pyinstaller',
 			[this.pathEntryPoint],
-			'--noconfirm --onefile',
-			'--distpath', [this.rootTarget],
-			'--workpath', [this.rootCache],
-			'--add-data', [`${pathOriginalExe};.`],
-			'--name', [exeBaseName],
+			'--noconfirm',
+			this.oneFile ? ['--onefile'] : [],
+			'--workpath', [this.workPath],
+			'--distpath', [this.distPath],
+			'--add-data', [`${pathOriginalExe};bin`],
+			'--name', [this.projectName],
 		]);
 		await $$`${args}`;
 
-		await rm(join(rootPackage, `${exeBaseName}.spec`));
+		console.log('Removing spec file');
+		await rm(join(rootPackage, `${this.projectName}.spec`));
+		if (!this.oneFile) {
+			const source = join(this.distPath, this.projectName);
+			const target = this.rootTarget;
+			console.log(`Copying output files from "${source}" to "${target}"`);
+			await cp(source, target, {recursive: true});
+		}
 	}
 }
 
@@ -225,15 +249,17 @@ class PyInstallerBuilder extends Builder {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 async function build() {
-	const deno = new DenoBuilder();
-	const bun = new BunBuilder();
-	const node = new NodeBuilder();
-	const pyInstaller = new PyInstallerBuilder();
+	// const deno = new DenoBuilder();
+	// const bun = new BunBuilder();
+	// const node = new NodeBuilder();
+	const pyInstaller = new PyInstallerBuilder(false);
+	// const pyInstallerOneFile = new PyInstallerBuilder(true);
 
 	// await deno.build();
 	// await bun.build();
-	await node.build();
-	// await pyInstaller.build();
+	// await node.build();
+	// await pyInstallerOneFile.build();
+	await pyInstaller.build();
 }
 
 if (import.meta.main) await build();
