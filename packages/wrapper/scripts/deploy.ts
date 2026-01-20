@@ -5,11 +5,14 @@ import { Octokit } from 'octokit';
 import { DateTime } from 'luxon';
 import { $ } from 'execa';
 import * as z from 'zod';
+import mdx from '@mdx-js/esbuild';
+import esbuild from 'esbuild';
+import { renderToString } from 'preact-render-to-string';
 
 // ---------------------------------------------------------------------------------------- internal
 
 import { pyInstaller } from './build';
-import { group, pathOriginalExe, rootCacheEs, rootDist } from './shared';
+import { group, pathOriginalExe, rootCacheEs, rootDist, rootScripts } from './shared';
 import { Path } from './Path';
 
 
@@ -157,6 +160,25 @@ async function build(version: string) {
 // 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+async function buildNotes() {
+    const output = rootScripts.join('output.js');
+    await esbuild.build({
+        // Replace `index.js` with your entry point that imports MDX files:
+        entryPoints: [rootScripts.join('body.mdx').toString()],
+        format: 'esm',
+        outfile: output.toString(),
+        bundle: true,
+        plugins: [mdx({
+            jsxImportSource: 'preact',
+        })],
+    });
+
+    const {default: Component} = await output.import();
+    const appHtml = await renderToString(Component());
+    console.log(appHtml);
+    await output.rm();
+}
+
 async function getPythonVersion() {
     const {stdout} = await $`uv run python --version`;
     const match = stdout.trim().match(/^.*(\d+\.\d+\.\d+)$/);
@@ -223,6 +245,7 @@ async function release(version: string, pathZip: Path, releaseUrl: string) {
 // 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const {version, releaseUrl} = await downloadOriginalEs();
-const {pathZip} = await build(version);
-await release(version, pathZip, releaseUrl);
+// const {version, releaseUrl} = await downloadOriginalEs();
+// const {pathZip} = await build(version);
+// await release(version, pathZip, releaseUrl);
+await buildNotes();
