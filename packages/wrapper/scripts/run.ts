@@ -6,6 +6,7 @@ import {parseCommandString} from 'execa';
 
 import {$$, pathPython, pathTypeScript} from './shared';
 import {BuilderOptions} from './build';
+import { Path } from './Path';
 
 
 
@@ -39,17 +40,17 @@ async function run(message: string, command: string[]) {
 class Runner {
     readonly baseArgs: string[];
     
-    constructor(readonly name: string, readonly sourcePath: string, baseArgs: string) {
+    constructor(readonly name: string, readonly sourcePath: Path, baseArgs: string) {
         this.baseArgs = parseCommandString(baseArgs);
     }
 
     async run() {
-        await run(`Running via ${this.name}...`, [...this.baseArgs, this.sourcePath]);
+        await run(`Running via ${this.name}...`, [...this.baseArgs, this.sourcePath.toString()]);
     }
 }
 
 class CompiledRunner {
-    readonly path: string;
+    readonly path: Path;
 
     constructor(readonly name: string) {
         const builder = new BuilderOptions(name);
@@ -57,7 +58,7 @@ class CompiledRunner {
     }
 
     async run() {
-        await run(`Running compiled from ${this.name}...`, [this.path]);
+        await run(`Running compiled from ${this.name}...`, [this.path.toString()]);
     }
 }
 

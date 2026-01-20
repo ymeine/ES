@@ -1,15 +1,11 @@
-// --------------------------------------------------------------------------------------------- std
-
-import {join} from 'node:path';
-import {cp, rm, writeFile} from 'node:fs/promises';
-
 // --------------------------------------------------------------------------------------------- 3rd
 
-import {parseCommandString} from 'execa';
+import { parseCommandString } from 'execa';
 
 // ---------------------------------------------------------------------------------------- internal
 
-import {$$, exeBaseName, exeName, pathOriginalExe, pathPython, pathTypeScript, rootBuild, rootCache, rootEntryPoints, rootPackage, rootSource} from './shared';
+import { $$, exeBaseName, exeName, pathOriginalExe, rootBuild, rootCache, rootEntryPoints, rootPackage, rootSource } from './shared';
+import { Path } from './Path';
 
 
 
@@ -31,14 +27,14 @@ export class BuilderOptions {
 	// 
 	////////////////////////////////////////////////////////////////////////////////////////////////
 
-	readonly pathTarget: string;
-	readonly rootTarget: string;
-	readonly rootCache: string;
+	readonly pathTarget: Path;
+	readonly rootTarget: Path;
+	readonly rootCache: Path;
 
 	constructor(readonly name: string) {
-		this.rootTarget = join(rootBuild, this.name);
-		this.pathTarget = join(this.rootTarget, exeName);
-		this.rootCache = join(rootCache, this.name);
+		this.rootTarget = rootBuild.join(this.name);
+		this.pathTarget = this.rootTarget.join(exeName);
+		this.rootCache = rootCache.join(this.name);
 	}
 }
 
@@ -50,7 +46,7 @@ interface IBuilderExtraOptions {
 
 class Builder {
 	readonly options: BuilderOptions;
-	readonly pathEntryPoint: string;
+	readonly pathEntryPoint: Path;
 
 	constructor(
 		name: string,
@@ -59,8 +55,8 @@ class Builder {
 	) {
 		this.options = new BuilderOptions(name);
 		this.pathEntryPoint = USE_GENERIC_ENTRY_POINT
-			? join(rootSource, `${extraOptions.genericEntryPointName}.${extraOptions.sourceExtension}`)
-			: join(rootEntryPoints, `${extraOptions.entryPointName ?? name}.${extraOptions.sourceExtension}`);
+			? rootSource.join(`${extraOptions.genericEntryPointName}.${extraOptions.sourceExtension}`)
+			: rootEntryPoints.join(`${extraOptions.entryPointName ?? name}.${extraOptions.sourceExtension}`);
 	}
 
 	get name() { return this.options.name; }
@@ -81,8 +77,8 @@ class Builder {
 	}
 }
 
-function toArgs(input: (string | string[])[]): string[] {
-	return input.flatMap(item => Array.isArray(item) ? item : parseCommandString(item));
+function toArgs(input: (string | (string | Path)[])[]): string[] {
+	return input.flatMap(item => Array.isArray(item) ? item.map(i => i.toString()) : parseCommandString(item));
 }
 
 const TS_EXTRA_OPTIONS: IBuilderExtraOptions = {sourceExtension: 'ts', genericEntryPointName: 'index'};
@@ -108,7 +104,7 @@ class DenoBuilder extends Builder {
 			'--exclude . --no-npm',
 			'--include', [pathOriginalExe],
 			`--output`, [this.pathTarget],
-			[join(rootEntryPoints, 'deno.ts')],
+			[rootEntryPoints.join('deno.ts')],
 		]);
 		await $$`${args}`;
 	}
@@ -127,8 +123,8 @@ class BunBuilder extends Builder {
 		const args = toArgs([
 			'bun build --compile',
 			`--outfile`, [this.pathTarget],
-			[join(rootEntryPoints, 'bun.ts')],
-			pathOriginalExe,
+			[rootEntryPoints.join('bun.ts')],
+			[pathOriginalExe],
 		]);
 		await $$`${args}`;
 	}
@@ -146,14 +142,14 @@ class NodeBuilder extends Builder {
 	async __build() {
 		// XXX 2026-01-16T02:29:46+01:00@Europe/Paris
 		// That precise, absolute path will appear in error traces, if any.
-		const pathBuiltFile = join(this.rootCache, 'index.js');
-		const pathBlob = join(this.rootCache, 'content.blob');
-		const pathSeaConfig = join(this.rootCache, 'sea-config.json');
+		const pathBuiltFile = this.rootCache.join('index.js');
+		const pathBlob = this.rootCache.join('content.blob');
+		const pathSeaConfig = this.rootCache.join('sea-config.json');
 		const signtool = 'C:/Program Files (x86)/Windows Kits/10/App Certification Kit/signtool.exe';
 
 		// build source
 		console.log('Building source with Bun...');
-		await $$`bun build --outfile ${pathBuiltFile} --target node --format cjs ${join(rootEntryPoints, 'node.ts')}`;
+		await $$`bun build --outfile ${pathBuiltFile.toString()} --target node --format cjs ${rootEntryPoints.join('node.ts').toString()}`;
 
 		// generate sea config
 		console.log('Generating SEA blob...');
@@ -172,29 +168,29 @@ class NodeBuilder extends Builder {
 				'es.exe': pathOriginalExe,
 			},
 		};
-		await writeFile(pathSeaConfig, JSON.stringify(data, null, 4));
+		await pathSeaConfig.json().write(data);
 
 		// generate blob
 		console.log('Generating SEA blob...');
-		await $$`node --experimental-sea-config ${pathSeaConfig}`;
+		await $$`node --experimental-sea-config ${pathSeaConfig.toString()}`;
 
 		// copy node
 		console.log('Copying node...');
-		await cp(process.execPath, this.pathTarget);
+		await Path.fromExecPath().copyTo(this.pathTarget);
 
 		// remove signature
 		console.log('Removing signature...');
-		await $$`${signtool} remove /s ${this.pathTarget}`;
+		await $$`${signtool.toString()} remove /s ${this.pathTarget.toString()}`;
 
 		// injecting blob
 		console.log('Injecting SEA blob...');
 		const sentinelFuse = 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
 		const resourceName = 'NODE_SEA_BLOB';
-		await $$`bun run postject ${this.pathTarget} ${resourceName} ${pathBlob} --sentinel-fuse ${sentinelFuse}`;
+		await $$`bun run postject ${this.pathTarget.toString()} ${resourceName} ${pathBlob.toString()} --sentinel-fuse ${sentinelFuse}`;
 
 		// sign executable
 		console.log('Signing executable...');
-		await $$`${signtool} sign /a /fd SHA256 ${this.pathTarget}`;
+		await $$`${signtool.toString()} sign /a /fd SHA256 ${this.pathTarget.toString()}`;
 	}
 }
 
@@ -205,8 +201,8 @@ class NodeBuilder extends Builder {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class PyInstallerBuilder extends Builder {
-	readonly workPath: string;
-	readonly distPath: string;
+	readonly workPath: Path;
+	readonly distPath: Path;
 	readonly projectName = exeBaseName;
 
 	constructor(readonly oneFile: boolean) {
@@ -214,8 +210,8 @@ class PyInstallerBuilder extends Builder {
 		const name = oneFile ? `${baseName}-onefile` : baseName;
 		super(name, () => this.__build(), {...PY_EXTRA_OPTIONS, entryPointName: baseName});
 
-		this.workPath = join(this.rootCache, 'work');
-		this.distPath = oneFile ? this.rootTarget : join(this.rootCache, 'dist')
+		this.workPath = this.rootCache.join('work');
+		this.distPath = oneFile ? this.rootTarget : this.rootCache.join('dist');
 	}
 
 	async __build() {
@@ -232,12 +228,12 @@ class PyInstallerBuilder extends Builder {
 		await $$`${args}`;
 
 		console.log('Removing spec file');
-		await rm(join(rootPackage, `${this.projectName}.spec`));
+		await rootPackage.join(`${this.projectName}.spec`).rm();
 		if (!this.oneFile) {
-			const source = join(this.distPath, this.projectName);
+			const source = this.distPath.join(this.projectName);
 			const target = this.rootTarget;
 			console.log(`Copying output files from "${source}" to "${target}"`);
-			await cp(source, target, {recursive: true});
+			await source.copyTo(target);
 		}
 	}
 }

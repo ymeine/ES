@@ -5,7 +5,10 @@ import {dirname, join} from 'node:path';
 // --------------------------------------------------------------------------------------------- 3rd
 
 import {$} from 'execa';
-import { readFile } from 'node:fs/promises';
+
+// ---------------------------------------------------------------------------------------- internal
+
+import { Path } from './Path';
 
 
 
@@ -13,22 +16,23 @@ import { readFile } from 'node:fs/promises';
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export const rootPackage = dirname(import.meta.dirname);
-export const rootSource = join(rootPackage, 'src');
-export const rootEntryPoints = join(rootSource, 'entry-points');
-export const pathTypeScript = join(rootSource, 'index.ts');
-export const pathPython = join(rootSource, 'main.py');
+export const rootScripts = Path.sourceFolder(import.meta);
+export const rootPackage = rootScripts.parent();
+export const rootSource = rootPackage.join('src');
+export const rootEntryPoints = rootSource.join('entry-points');
+export const pathTypeScript = rootSource.join('index.ts');
+export const pathPython = rootSource.join('main.py');
 
-export const rootDist = join(rootPackage, '.dist');
-export const rootBuild = join(rootDist, 'build');
+export const rootDist = rootPackage.join('.dist');
+export const rootBuild = rootDist.join('build');
 export const exeBaseName = 'es';
 export const exeName = `${exeBaseName}.exe`;
 
-export const rootCache = join(rootPackage, '.cache');
-export const rootCacheEs = join(rootCache, 'es');
-export const pathOriginalExe = join(rootCacheEs, exeName);
+export const rootCache = rootPackage.join('.cache');
+export const rootCacheEs = rootCache.join('es');
+export const pathOriginalExe = rootCacheEs.join(exeName);
 
-export const $$ = $({stdio: 'inherit', cwd: rootPackage});
+export const $$ = $({stdio: 'inherit', cwd: rootPackage.toString()});
 
 
 
@@ -38,15 +42,14 @@ export const $$ = $({stdio: 'inherit', cwd: rootPackage});
 
 export async function getRepoRoot() {
     const {stdout} = await $`git rev-parse --show-toplevel`;
-    return stdout.trim();
+    return Path.fromString(stdout.trim());
 }
 
 export async function getEsVersion() {
     const repoRoot = await getRepoRoot();
     const fileName = 'Changes.txt';
-    const pathReleaseNotes = join(repoRoot, fileName);
-    const notes = await readFile(pathReleaseNotes, 'utf-8');
-    const lines = notes.split(/\r?\n/);
+    const pathReleaseNotes = repoRoot.join(fileName);
+    const lines = await pathReleaseNotes.lines().read();
     for (const line of lines) {
         const match = line.match(/.*Version (.*)/);
         if (match?.[1] != null) return match[1].trim();
@@ -62,9 +65,6 @@ export async function getEsVersion() {
 
 export function group(message: string) {
     console.group(message);
-    return {
-        [Symbol.dispose]() {
-            console.groupEnd();
-        }
-    };
+    const dispose = () => console.groupEnd();
+    return {[Symbol.dispose]: dispose};
 }

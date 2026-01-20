@@ -1,10 +1,3 @@
-// --------------------------------------------------------------------------------------------- std
-
-import { basename, join } from 'node:path';
-import { createReadStream, createWriteStream, existsSync } from 'node:fs';
-import { glob, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
-import { Writable } from 'node:stream';
-
 // --------------------------------------------------------------------------------------------- 3rd
 
 import { archiveFolder, extract } from 'zip-lib';
@@ -17,6 +10,7 @@ import * as z from 'zod';
 
 import { pyInstaller } from './build';
 import { group, pathOriginalExe, rootCacheEs, rootDist } from './shared';
+import { Path } from './Path';
 
 
 
@@ -89,47 +83,48 @@ async function getLatestRelease() {
     return picked;
 }
 
+// FIXME 2026-01-19T10:50:22+01:00@Europe/Paris
+// Instead of multiplying files, just limit it to one for the release, one for the asset.
+// Don't use Zod schemas, just cast to types.
 async function downloadOriginalEs() {
     using _ = group('Downloading original ES...');
 
-    const pathVersion = join(rootCacheEs, 'version.txt');
-    const pathReleaseUrl = join(rootCacheEs, 'release-url.txt');
-    if (existsSync(pathOriginalExe) && existsSync(pathVersion) && existsSync(pathReleaseUrl)) {
+    const pathVersion = rootCacheEs.join('version.txt');
+    const pathReleaseUrl = rootCacheEs.join('release-url.txt');
+    if (pathOriginalExe.existsSync() && pathVersion.existsSync() && pathReleaseUrl.existsSync()) {
         console.log('Original ES executable already exists in cache, skipping download.');
-        const version = await readFile(pathVersion, 'utf-8');
-        const releaseUrl = await readFile(pathReleaseUrl, 'utf-8');
+        const version = await pathVersion.string().read();
+        const releaseUrl = await pathReleaseUrl.string().read();
         return {version, releaseUrl};
     }
     
-    await mkdir(rootCacheEs, {recursive: true});
-    
     console.log('Getting latest release and asset');
     const latest = await getLatestRelease();
-    await writeFile(join(rootCacheEs, 'release.json'), JSON.stringify(latest, null, 4));
+    await rootCacheEs.join('release.json').json().write(latest);
     const releaseUrl = latest.html_url;
-    await writeFile(pathReleaseUrl, releaseUrl);
+    await pathReleaseUrl.string().write(releaseUrl);
 
     const asset = latest.assets.find(asset => asset.name.includes('.x64.'));
     if (asset == null) throw new Error('No suitable asset found in latest release');
     const version = latest.tag_name;
-    await writeFile(pathVersion, version);
+    await pathVersion.string().write(version);
 
     console.log(`Downloading asset from ${asset.browser_download_url}...`);
     const response = await fetch(asset.browser_download_url);
     if (!response.ok || response.body == null) throw new Error(`Failed to download ES: ${response.status} ${response.statusText}`);
-    const pathZip = join(rootCacheEs, 'es-original.zip');
-    await response.body.pipeTo(Writable.toWeb(createWriteStream(pathZip)));
+    const pathZip = rootCacheEs.join('es-original.zip');
+    await response.body.pipeTo(await pathZip.writableWebStream());
 
     console.log('Extracting archive...');
-    const rootExtracted = join(rootCacheEs, 'extracted');
-    await extract(pathZip, rootExtracted);
+    const rootExtracted = rootCacheEs.join('extracted');
+    await extract(pathZip.toString(), rootExtracted.toString());
 
     console.log('Locating executable file...');
-    const result = await Array.fromAsync(glob(`**/*.exe`, {cwd: rootExtracted}));
+    const result = await rootExtracted.glob(`**/*.exe`);
     if (result.length === 0) throw new Error('No .exe file found in extracted original ES');
     if (result.length > 1) throw new Error('Multiple .exe files found in extracted original ES');
-    const extractedExePath = join(rootExtracted, result[0]!);
-    await rename(extractedExePath, pathOriginalExe);
+    const extractedExePath = rootExtracted.join(result[0]!);
+    await extractedExePath.moveTo(pathOriginalExe);
 
     return {version, releaseUrl};
 }
@@ -144,14 +139,14 @@ async function build(version: string) {
     // const version = await getEsVersion();
     using _ = group(`Building for version ${version}...`);
 
-    const pathZip = join(rootDist, `es-${version}-x86_64-pc-windows-msvc.zip`);
-    if (existsSync(pathZip)) {
+    const pathZip = rootDist.join(`es-${version}-x86_64-pc-windows-msvc.zip`);
+    if (pathZip.existsSync()) {
         console.log(`Build for version ${version} already exists, skipping build.`);
         return {pathZip};
     }
     
     await pyInstaller.build();
-    await archiveFolder(pyInstaller.rootTarget, pathZip);
+    await archiveFolder(pyInstaller.rootTarget.toString(), pathZip.toString());
 
     return {pathZip};
 }
@@ -174,7 +169,10 @@ async function getPyInstallerVersion() {
     return stdout.trim();
 }
 
-async function release(version: string, pathZip: string, releaseUrl: string) {
+// TODO 2026-01-19T10:49:13+01:00@Europe/Paris 
+// - Add info about used asset: name, link, etc.
+// - add timezone name to the release date info?
+async function release(version: string, pathZip: Path, releaseUrl: string) {
     using _ = group(`Create a release for version ${version}...`);
 
     const now = DateTime.now();
@@ -206,13 +204,13 @@ async function release(version: string, pathZip: string, releaseUrl: string) {
     console.log(release);
 
     console.log('Uploading asset...');
-    const {size} = await stat(pathZip);
+    const size = await pathZip.size();
     await octokit.rest.repos.uploadReleaseAsset({
         owner: REPO_OWNER,
         repo: REPO_NAME,
         release_id: release.id,
-        name: basename(pathZip),
-        data: createReadStream(pathZip) as unknown as string,
+        name: pathZip.name(),
+        data: pathZip.readableStream() as unknown as string,
         headers: {
             'Content-Length': size,
         },
