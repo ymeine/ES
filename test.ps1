@@ -5,45 +5,46 @@ try {
     # 
     ################################################################################################
 
-    $query = 'folder:endwith:Studios/DOOM/saves'
-    $query = 'folder:endwith:"Saved Games/Nightdive Studios/DOOM/saves"'
-
-    function _runEsGlobal { es.exe @args }
-
-    function _runEsLocal {
-        xmake build | Out-Null
-        if (!$?) { throw "xmake build failed." }
-        & (xmake lua .\get-exe-path.lua) @args
-    }
-
-    # Not working, xmake may escape args itself.
-    function _runEsXmake { xmake run es @args }
-
-    function _runEs {
-        # _runEsGlobal @args
-        # _runEsLocal @args
-        _runEsXmake @args
-    }
+    function _runEs() { xmake run es @args }
     
-    function es {
+    function _runOriginalEs($query, [switch] $Fixed) {
         try {
+            # xmake build | Out-Null
+            # if (!$?) { throw "xmake build failed." }
+            
+            $path = xmake lua .\get-exe-path.lua es-original
+            
             $previous = $PSNativeCommandArgumentPassing
-            $PSNativeCommandArgumentPassing = 'Legacy'
-            $output = _runEs @args
+            if ($Fixed) { $PSNativeCommandArgumentPassing = 'Legacy' }
+            & $path $query
         } finally {
             $PSNativeCommandArgumentPassing = $previous
         }
         $output
     }
-
-
-
+    
+    
     ################################################################################################
     # 
     ################################################################################################
 
-    # es $query
+    $query = 'folder:endwith:Studios/DOOM/saves'
+    $query = 'folder:endwith:"Saved Games/Nightdive Studios/DOOM/saves"'
+    $query = 'folder:"folder/with some/spaces"'
+
+    $sep = '-' * 40
+
+    Write-Host $sep
+    Write-Host "Fixed"
     _runEs $query
+    
+    Write-Host $sep
+    Write-Host "Original with fix ahead"
+    _runOriginalEs $query -Fixed
+    
+    Write-Host $sep
+    Write-Host "Original (not fixed)"
+    _runOriginalEs $query
 } finally {
     Pop-Location
 }

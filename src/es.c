@@ -350,12 +350,16 @@ static ES_UINT64 _es_max_results = ES_UINT64_MAX;
 static ES_UINT64 _es_count = ES_UINT64_MAX;
 static DWORD _es_ret = ES_ERROR_SUCCESS; // the return code from main()
 
+#ifdef _ES_ORIGINAL_BEHAVIOR
+static const wchar_t *_es_command_line = 0;
+#else
 typedef struct {
 	int argc;
 	char **argv;
 	int current_index;
 } CommandLine;
 static CommandLine *_es_command_line = 0;
+#endif
 
 static BYTE _es_command_line_was_eq = 0; // -switch=value
 static BYTE _es_size_format = 1; // 0 = auto, 1=bytes, 2=kb
@@ -6286,14 +6290,15 @@ static int _es_main(void)
 	// load default settings.	
 	_es_load_settings();
 
-	// _es_command_line = GetCommandLine();
+	#ifdef _ES_ORIGINAL_BEHAVIOR
+	_es_command_line = GetCommandLine();
+	#ifdef _ES_DEBUG
+	_es_output_noncell_wchar_string(L"cmd: ");
+	_es_output_noncell_wchar_string(_es_command_line);
+	_es_output_noncell_wchar_string(L"\n");
+	#endif
+	#endif
 	_es_command_line_was_eq = 0;
-
-	// #ifdef _ES_DEBUG
-	// _es_output_noncell_wchar_string(L"cmd: ");
-	// _es_output_noncell_wchar_string(_es_command_line);
-	// _es_output_noncell_wchar_string(L"\n");
-	// #endif
 
 /*
 	// code page test
@@ -6310,7 +6315,7 @@ static int _es_main(void)
 	{
 		_es_get_argv(&argv_wcbuf);
 		#ifdef _ES_DEBUG
-		_es_output_noncell_wchar_string(L"cli: ");
+		_es_output_noncell_wchar_string(L"exe: ");
 		_es_output_noncell_wchar_string(argv_wcbuf.buf);
 		_es_output_noncell_wchar_string(L"\n");
 		#endif
@@ -7889,27 +7894,29 @@ static int _es_main(void)
 					goto next_argv;
 				}
 				
-				// if ((_es_check_option_utf8_string(argv_wcbuf.buf,"q*")) || (_es_check_option_utf8_string(argv_wcbuf.buf,"search*")) || (_es_check_option_utf8_string(argv_wcbuf.buf,"s*")))
-				// {
-				// 	// eat the rest.
-				// 	// this would do the same as a stop parsing switches command line option
-				// 	// like 7zip --
-				// 	// or powershell --%
-				// 	// this doesn't remove quotes.
-				// 	// -- will still parse quotes.
-				// 	_es_command_line = wchar_string_skip_ws(_es_command_line);
-				// 	_es_command_line_was_eq = 0;
+				#ifdef _ES_ORIGINAL_BEHAVIOR
+				if ((_es_check_option_utf8_string(argv_wcbuf.buf,"q*")) || (_es_check_option_utf8_string(argv_wcbuf.buf,"search*")) || (_es_check_option_utf8_string(argv_wcbuf.buf,"s*")))
+				{
+					// eat the rest.
+					// this would do the same as a stop parsing switches command line option
+					// like 7zip --
+					// or powershell --%
+					// this doesn't remove quotes.
+					// -- will still parse quotes.
+					_es_command_line = wchar_string_skip_ws(_es_command_line);
+					_es_command_line_was_eq = 0;
 							
-				// 	if (search_wcbuf.length_in_wchars)
-				// 	{
-				// 		wchar_buf_cat_wchar(&search_wcbuf,' ');
-				// 	}
+					if (search_wcbuf.length_in_wchars)
+					{
+						wchar_buf_cat_wchar(&search_wcbuf,' ');
+					}
 
-				// 	wchar_buf_cat_wchar_string(&search_wcbuf,_es_command_line);
+					wchar_buf_cat_wchar_string(&search_wcbuf,_es_command_line);
 					
-				// 	// we are done, break.
-				// 	break;
-				// }
+					// we are done, break.
+					break;
+				}
+				#endif
 
 				if ((_es_check_option_utf8_string(argv_wcbuf.buf,"j")) || (_es_check_option_utf8_string(argv_wcbuf.buf,"journal")))
 				{
@@ -9343,13 +9350,20 @@ exit:
 int main(int argc, char **argv)
 {
 	#ifdef _ES_DEBUG
+	#ifdef _ES_ORIGINAL_BEHAVIOR
+	printf("Running original ES\n");
+	#else
+	printf("Running modified ES\n");
+	#endif
 	printf("argc: %d\n", argc);
 	for (int index = 0; index < argc; index++) printf("argv[%d]: %s\n", index , argv[index]);
 	#endif
+	#ifndef _ES_ORIGINAL_BEHAVIOR
 	_es_command_line = mem_alloc(sizeof(CommandLine));
 	_es_command_line->argc = argc;
 	_es_command_line->argv = argv;
 	_es_command_line->current_index = 0;
+	#endif
 
 	return _es_main();
 }
@@ -10509,7 +10523,7 @@ static void _es_format_dimensions(EVERYTHING3_DIMENSIONS *dimensions_value,wchar
 // this function preserves quotes.
 // so an arg in quotes: "-addcolumn" is treated as a search.
 // use _es_get_command_argv to get a switch param that processes quotes.
-/*
+#ifdef _ES_ORIGINAL_BEHAVIOR
 static void _es_get_argv(wchar_buf_t *wcbuf)
 {
 	int pass;
@@ -10638,8 +10652,7 @@ static void _es_get_argv(wchar_buf_t *wcbuf)
 	_es_command_line = p;
 	_es_command_line_was_eq = was_eq;
 }
-*/
-
+#else
 static void _es_get_argv(wchar_buf_t *wcbuf) {
 	char *current = _es_command_line->argv[_es_command_line->current_index];
 	_es_command_line->current_index++;
@@ -10650,6 +10663,7 @@ static void _es_get_argv(wchar_buf_t *wcbuf) {
 		_es_command_line_was_eq = 0;
 	}
 }
+#endif
 
 // get an argument from the command line.
 // throws a fatal error if there was no command line argument.
@@ -10664,7 +10678,7 @@ static void _es_expect_argv(wchar_buf_t *wcbuf)
 }
 
 // like _es_get_argv, but we remove double quotes.
-/*
+#ifdef _ES_ORIGINAL_BEHAVIOR
 static void _es_get_command_argv(wchar_buf_t *wcbuf)
 {
 	int pass;
@@ -10754,8 +10768,7 @@ static void _es_get_command_argv(wchar_buf_t *wcbuf)
 	_es_command_line = p;
 	_es_command_line_was_eq = 0;
 }
-*/
-
+#else
 static void _es_get_command_argv(wchar_buf_t *wcbuf) {
 	char *current = _es_command_line->argv[_es_command_line->current_index];
 	_es_command_line->current_index++;
@@ -10766,6 +10779,7 @@ static void _es_get_command_argv(wchar_buf_t *wcbuf) {
 		_es_command_line_was_eq = 0;
 	}
 }
+#endif
 
 // get an argument from the command line.
 // throws a fatal error if there was no command line argument.

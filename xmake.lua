@@ -26,7 +26,7 @@ set_config('mode', 'debug')
 
 set_project('everything')
 
-target('es', function ()
+function common()
     set_kind('binary')
     add_files('src/**.c')
     
@@ -35,4 +35,13 @@ target('es', function ()
     
     add_syslinks('user32', 'shell32')
     -- add_syslinks('unicows')
+end
+
+target('es', function ()
+    common()
+end)
+
+target('es-original', function ()
+    common()
+    add_defines('_ES_ORIGINAL_BEHAVIOR')
 end)
