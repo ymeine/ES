@@ -86,6 +86,6 @@ const pyinstallerOneFile = new CompiledRunner('pyinstaller-onefile');
 
 // await bunCompiled.run();
 // await denoCompiled.run();
-// await nodeCompiled.run();
-await pyinstaller.run();
+await nodeCompiled.run();
+// await pyinstaller.run();
 // await pyinstallerOneFile.run();

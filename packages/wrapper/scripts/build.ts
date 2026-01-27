@@ -1,6 +1,7 @@
 // --------------------------------------------------------------------------------------------- 3rd
 
-import { parseCommandString } from 'execa';
+import { $, parseCommandString } from 'execa';
+import { diff, compare } from 'semver';
 
 // ---------------------------------------------------------------------------------------- internal
 
@@ -137,25 +138,23 @@ class BunBuilder extends Builder {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class NodeBuilder extends Builder {
+	readonly signtool = 'C:/Program Files (x86)/Windows Kits/10/App Certification Kit/signtool.exe';
+
+	readonly pathBuiltFile = this.rootCache.join('index.js');
+	readonly pathSeaConfig = this.rootCache.join('sea-config.json');
+
 	constructor() { super('node', () => this.__build(), TS_EXTRA_OPTIONS); }
 
-	async __build() {
-		// XXX 2026-01-16T02:29:46+01:00@Europe/Paris
-		// That precise, absolute path will appear in error traces, if any.
-		const pathBuiltFile = this.rootCache.join('index.js');
-		const pathBlob = this.rootCache.join('content.blob');
-		const pathSeaConfig = this.rootCache.join('sea-config.json');
-		const signtool = 'C:/Program Files (x86)/Windows Kits/10/App Certification Kit/signtool.exe';
-
-		// build source
+	async _buildJavaScript() {
 		console.log('Building source with Bun...');
-		await $$`bun build --outfile ${pathBuiltFile.toString()} --target node --format cjs ${rootEntryPoints.join('node.ts').toString()}`;
+		await $$`bun build --outfile ${this.pathBuiltFile.toString()} --target node --format cjs ${rootEntryPoints.join('node.ts').toString()}`;
+	}
 
-		// generate sea config
-		console.log('Generating SEA blob...');
+	async _makeConfig(output: Path) {
+		console.log('Generating SEA configuration...');
 		const data = {
-			main: pathBuiltFile,
-			output: pathBlob,
+			main: this.pathBuiltFile.value,
+			output: output.value,
 			disableExperimentalSEAWarning: true,
 			// XXX 2026-01-16T02:09:24+01:00@Europe/Paris
 			// Works only with CommonJS, and does crazy shit, do not activate it.
@@ -165,14 +164,27 @@ class NodeBuilder extends Builder {
 			// cache may actually hurt performances.
 			// useCodeCache: true,
 			assets: {
-				'es.exe': pathOriginalExe,
+				'es.exe': pathOriginalExe.value,
 			},
 		};
-		await pathSeaConfig.json().write(data);
+		await this.pathSeaConfig.json().write(data);
+	}
+
+	async _sign() {
+		console.log('Signing executable...');
+		await $$`${this.signtool.toString()} sign /a /fd SHA256 ${this.pathTarget.toString()}`;
+	}
+
+	async _buildOld() {
+		const pathBlob = this.rootCache.join('content.blob');
+
+		// pre processing
+		await this._buildJavaScript();
+		await this._makeConfig(pathBlob);
 
 		// generate blob
 		console.log('Generating SEA blob...');
-		await $$`node --experimental-sea-config ${pathSeaConfig.toString()}`;
+		await $$`node --experimental-sea-config ${this.pathSeaConfig.toString()}`;
 
 		// copy node
 		console.log('Copying node...');
@@ -180,17 +192,48 @@ class NodeBuilder extends Builder {
 
 		// remove signature
 		console.log('Removing signature...');
-		await $$`${signtool.toString()} remove /s ${this.pathTarget.toString()}`;
+		await $$`${this.signtool.toString()} remove /s ${this.pathTarget.toString()}`;
 
-		// injecting blob
+		// inject blob
 		console.log('Injecting SEA blob...');
 		const sentinelFuse = 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
 		const resourceName = 'NODE_SEA_BLOB';
 		await $$`bun run postject ${this.pathTarget.toString()} ${resourceName} ${pathBlob.toString()} --sentinel-fuse ${sentinelFuse}`;
 
-		// sign executable
-		console.log('Signing executable...');
-		await $$`${signtool.toString()} sign /a /fd SHA256 ${this.pathTarget.toString()}`;
+		// post processing
+		await this._sign();
+	}
+
+	async _buildNew() {
+		// pre processing
+		await this._buildJavaScript();
+		await this._makeConfig(this.pathTarget);
+
+		// generate exe
+		console.log('Generating SEA executable...');
+		await $$`node --build-sea ${this.pathSeaConfig.toString()}`;
+
+		// post processing
+		await this._sign();
+	}
+
+	// 2026-01-27T19:38:11+01:00@Europe/Paris
+	// New version seems to be struggling to find the Node.js path. Probably because I use shims,
+	// but I could do it easily, why not them?
+	async __build() {
+		await this._buildOld();
+		return;
+
+		const {stdout} = await $`node -v`;
+		const version = stdout.trim();
+		const useOld = compare(version, '25.5.0') < 0;
+		if (useOld) {
+			console.log(`Using old SEA build process for Node.js version ${version}`);
+			await this._buildOld();
+		} else {
+			console.log(`Using new SEA build process for Node.js version ${version}`);
+			await this._buildNew();
+		}
 	}
 }
 
@@ -253,9 +296,9 @@ export const pyInstallerOneFile = new PyInstallerBuilder(true);
 async function build() {
 	// await deno.build();
 	// await bun.build();
-	// await node.build();
+	await node.build();
 	// await pyInstallerOneFile.build();
-	await pyInstaller.build();
+	// await pyInstaller.build();
 }
 
 if (import.meta.main) await build();

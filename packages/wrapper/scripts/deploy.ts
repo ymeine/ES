@@ -86,7 +86,7 @@ async function getLatestRelease() {
 // FIXME 2026-01-19T10:50:22+01:00@Europe/Paris
 // Instead of multiplying files, just limit it to one for the release, one for the asset.
 // Don't use Zod schemas, just cast to types.
-async function downloadOriginalEs() {
+export async function downloadOriginalEs() {
     using _ = group('Downloading original ES...');
 
     const pathVersion = rootCacheEs.join('version.txt');
@@ -123,7 +123,7 @@ async function downloadOriginalEs() {
     const result = await rootExtracted.glob(`**/*.exe`);
     if (result.length === 0) throw new Error('No .exe file found in extracted original ES');
     if (result.length > 1) throw new Error('Multiple .exe files found in extracted original ES');
-    const extractedExePath = rootExtracted.join(result[0]!);
+    const extractedExePath = result[0]!;
     await extractedExePath.moveTo(pathOriginalExe);
 
     return {version, releaseUrl};
@@ -223,6 +223,8 @@ async function release(version: string, pathZip: Path, releaseUrl: string) {
 // 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const {version, releaseUrl} = await downloadOriginalEs();
-const {pathZip} = await build(version);
-await release(version, pathZip, releaseUrl);
+if (import.meta.main) {
+    const {version, releaseUrl} = await downloadOriginalEs();
+    const {pathZip} = await build(version);
+    await release(version, pathZip, releaseUrl);
+}
